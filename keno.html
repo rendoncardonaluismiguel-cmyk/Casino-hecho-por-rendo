@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Keno — Casino Royale</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&family=Crimson+Pro:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#020408;
+  --panel:#060c18;--panel2:#080e1e;--panel3:#0a1228;
+  --neon:#00e5ff;--neon2:#00b8d4;--neon3:rgba(0,229,255,.15);
+  --hot:#ff3d5a;--hot2:#ff1744;--hot3:rgba(255,61,90,.15);
+  --gold:#d4a017;--gold2:#f0c040;--gold3:rgba(212,160,23,.15);
+  --green:#00e676;--green2:rgba(0,230,118,.15);
+  --purple:#bb86fc;--purple2:rgba(187,134,252,.15);
+  --txt:rgba(200,230,255,.88);--txt2:rgba(200,230,255,.32);--txt3:rgba(200,230,255,.12);
+  --border:rgba(0,229,255,.14);--border2:rgba(0,229,255,.06);
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{min-height:100%;background:var(--bg);}
+body{font-family:'Share Tech Mono',monospace;color:var(--txt);cursor:none;overflow-x:hidden;}
+
+/* Scanline overlay */
+body::before{
+  content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+  background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,.06) 3px,rgba(0,0,0,.06) 4px);
+}
+body::after{
+  content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+  background:radial-gradient(ellipse at 50% 40%,rgba(0,80,120,.12) 0%,transparent 70%);
+}
+
+/* ── CURSOR ── */
+#cur{width:16px;height:16px;border:1.5px solid var(--neon);border-radius:50%;position:fixed;pointer-events:none;z-index:9999;transform:translate(-50%,-50%);transition:transform .07s;box-shadow:0 0 8px rgba(0,229,255,.6);}
+#curDot{width:3px;height:3px;background:var(--neon);border-radius:50%;position:fixed;pointer-events:none;z-index:9999;transform:translate(-50%,-50%);}
+#cur.h{transform:translate(-50%,-50%) scale(2);background:rgba(0,229,255,.07);}
+
+/* ── TOPBAR ── */
+.topbar{position:sticky;top:0;z-index:100;height:50px;display:flex;align-items:center;justify-content:space-between;padding:0 12px;background:rgba(2,4,8,.98);border-bottom:1px solid var(--border);}
+.topbar::after{content:'';position:absolute;bottom:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--neon),transparent);opacity:.4;}
+.back{font-family:'Bebas Neue';font-size:.78rem;letter-spacing:3px;color:var(--txt2);text-decoration:none;cursor:none;transition:color .2s;}
+.back:hover{color:var(--neon);}
+.top-title{font-family:'Orbitron';font-size:.82rem;font-weight:900;color:var(--neon);text-shadow:0 0 14px rgba(0,229,255,.6);letter-spacing:3px;}
+.top-coins{display:flex;align-items:center;gap:4px;background:var(--gold3);border:1px solid rgba(212,160,23,.25);padding:3px 10px;font-family:'Share Tech Mono';font-size:.75rem;color:var(--gold2);}
+
+/* ── PAGE ── */
+.page{max-width:490px;margin:0 auto;padding:6px 6px 28px;display:flex;flex-direction:column;gap:6px;position:relative;z-index:1;}
+
+/* ── MARQUEE HEADER ── */
+.marquee-wrap{overflow:hidden;background:rgba(0,0,0,.7);border:1px solid var(--border2);padding:4px 0;position:relative;}
+.marquee-wrap::before,.marquee-wrap::after{content:'';position:absolute;top:0;bottom:0;width:24px;z-index:2;}
+.marquee-wrap::before{left:0;background:linear-gradient(90deg,rgba(2,4,8,.98),transparent);}
+.marquee-wrap::after{right:0;background:linear-gradient(270deg,rgba(2,4,8,.98),transparent);}
+.marquee{display:flex;gap:0;animation:scroll 22s linear infinite;width:max-content;}
+.marquee-item{font-family:'Orbitron';font-size:.5rem;letter-spacing:4px;color:var(--neon2);padding:0 28px;white-space:nowrap;opacity:.6;}
+@keyframes scroll{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+
+/* ── PICK HEADER ── */
+.pick-header{
+  display:flex;align-items:center;justify-content:space-between;
+  background:var(--panel);border:1px solid var(--border);
+  padding:7px 12px;
+}
+.ph-left{display:flex;flex-direction:column;gap:1px;}
+.ph-label{font-family:'Bebas Neue';font-size:.5rem;letter-spacing:5px;color:var(--txt2);}
+.ph-count{
+  font-family:'Orbitron';font-size:1.4rem;font-weight:900;
+  color:var(--neon);text-shadow:0 0 14px rgba(0,229,255,.5);
+  line-height:1;
+}
+.ph-count span{font-size:.7rem;color:var(--txt2);}
+.ph-right{display:flex;flex-direction:column;align-items:flex-end;gap:1px;}
+.ph-spots{font-family:'Bebas Neue';font-size:.5rem;letter-spacing:4px;color:var(--txt2);}
+.spot-dots{display:flex;gap:3px;margin-top:2px;}
+.sdot{width:10px;height:10px;border-radius:50%;border:1px solid var(--border);background:transparent;transition:.18s;}
+.sdot.filled{background:var(--neon);border-color:var(--neon);box-shadow:0 0 5px rgba(0,229,255,.6);}
+.ph-btn{
+  font-family:'Bebas Neue';font-size:.58rem;letter-spacing:3px;
+  background:rgba(255,61,90,.08);border:1px solid rgba(255,61,90,.25);
+  color:var(--hot);padding:4px 10px;cursor:none;transition:.18s;
+}
+.ph-btn:hover{background:rgba(255,61,90,.15);border-color:var(--hot);}
+
+/* ── NUMBER GRID ── */
+.grid-wrap{
+  background:var(--panel);border:1px solid var(--border);
+  padding:8px;
+}
+.grid-title{font-family:'Bebas Neue';font-size:.48rem;letter-spacing:5px;color:var(--txt2);display:block;margin-bottom:6px;text-align:center;}
+.num-grid{
+  display:grid;grid-template-columns:repeat(10,1fr);gap:3px;
+}
+.num-btn{
+  aspect-ratio:1;display:flex;align-items:center;justify-content:center;
+  font-family:'Orbitron';font-size:clamp(8px,2.5vw,13px);font-weight:700;
+  background:var(--panel3);border:1px solid var(--border2);
+  color:var(--txt2);cursor:none;transition:all .14s;position:relative;
+  border-radius:2px;
+}
+.num-btn:hover{border-color:var(--neon2);color:var(--txt);background:rgba(0,180,212,.08);}
+.num-btn.picked{
+  background:rgba(0,229,255,.12);border-color:var(--neon);
+  color:var(--neon);text-shadow:0 0 8px rgba(0,229,255,.7);
+  box-shadow:0 0 8px rgba(0,229,255,.15);
+}
+.num-btn.drawn{
+  background:rgba(255,61,90,.14);border-color:var(--hot);
+  color:var(--hot);text-shadow:0 0 8px rgba(255,61,90,.7);
+  box-shadow:0 0 8px rgba(255,61,90,.2);
+  animation:drawPop .35s cubic-bezier(.18,1.5,.38,1) both;
+}
+.num-btn.hit{
+  background:rgba(0,230,118,.18);border-color:var(--green);
+  color:var(--green);text-shadow:0 0 10px rgba(0,230,118,.8);
+  box-shadow:0 0 12px rgba(0,230,118,.3);
+  animation:hitPop .4s cubic-bezier(.18,1.8,.38,1) both;
+}
+@keyframes drawPop{from{transform:scale(.7);opacity:.4}to{transform:scale(1);opacity:1}}
+@keyframes hitPop{0%{transform:scale(.6);opacity:.3}60%{transform:scale(1.25)}100%{transform:scale(1);opacity:1}}
+
+/* ── DRAWN NUMBERS ── */
+.drawn-section{
+  background:var(--panel);border:1px solid var(--border);padding:8px 10px;
+}
+.drawn-title{font-family:'Bebas Neue';font-size:.48rem;letter-spacing:5px;color:var(--txt2);display:block;margin-bottom:6px;}
+.drawn-balls{display:flex;flex-wrap:wrap;gap:4px;min-height:36px;align-items:center;}
+.dball{
+  width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  font-family:'Orbitron';font-size:9px;font-weight:700;flex-shrink:0;
+  animation:ballIn .3s cubic-bezier(.18,1.5,.38,1) both;
+}
+@keyframes ballIn{from{transform:scale(0);opacity:0}to{transform:scale(1);opacity:1}}
+.dball.miss{
+  background:radial-gradient(circle at 38% 35%,#1a2a3a,#0a1220);
+  border:1px solid rgba(0,229,255,.25);color:var(--neon2);
+}
+.dball.match{
+  background:radial-gradient(circle at 38% 35%,#1a3a20,#0a2010);
+  border:1.5px solid var(--green);color:var(--green);
+  box-shadow:0 0 8px rgba(0,230,118,.3);
+}
+.drawn-count{
+  font-family:'Bebas Neue';font-size:.5rem;letter-spacing:3px;color:var(--txt2);
+  display:block;margin-top:4px;
+}
+
+/* ── RESULT BAR ── */
+.result-bar{
+  padding:10px 12px;text-align:center;
+  background:var(--panel);border:1px solid var(--border);
+  min-height:52px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+  position:relative;overflow:hidden;
+}
+.result-bar::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--neon),transparent);opacity:.3;}
+.rb-idle{font-family:'Bebas Neue';font-size:.6rem;letter-spacing:4px;color:var(--txt2);}
+.rb-win{
+  font-family:'Orbitron';font-size:1.1rem;font-weight:900;
+  color:var(--green);text-shadow:0 0 18px rgba(0,230,118,.6);
+  animation:winPulse .4s ease both;
+}
+@keyframes winPulse{from{opacity:0;transform:scale(.8)}to{opacity:1;transform:scale(1)}}
+.rb-lose{font-family:'Orbitron';font-size:.75rem;color:var(--hot2);letter-spacing:2px;}
+.rb-sub{font-family:'Bebas Neue';font-size:.52rem;letter-spacing:3px;color:var(--txt2);}
+.rb-hits{font-family:'Share Tech Mono';font-size:.65rem;color:var(--txt2);}
+
+/* ── CONTROLS ── */
+.controls{background:var(--panel);border:1px solid var(--border);padding:9px 10px 10px;}
+.ctrl-lbl{font-family:'Bebas Neue';font-size:.48rem;letter-spacing:5px;color:var(--txt2);display:block;margin-bottom:7px;}
+.chip-row{display:flex;gap:5px;justify-content:center;flex-wrap:wrap;margin-bottom:8px;}
+.chip{
+  width:38px;height:38px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-family:'Orbitron';font-size:.52rem;font-weight:700;
+  cursor:none;transition:.15s;position:relative;flex-shrink:0;
+  box-shadow:0 3px 8px rgba(0,0,0,.7);
+}
+.chip::before{content:'';position:absolute;inset:3px;border-radius:50%;border:1.5px dashed rgba(255,255,255,.2);}
+.chip:hover,.chip.sel{transform:translateY(-4px) scale(1.1);}
+.chip.sel{outline:2px solid var(--neon);outline-offset:2px;box-shadow:0 0 12px rgba(0,229,255,.35);}
+.ch1{background:radial-gradient(circle at 35% 35%,#666,#222);}
+.ch5{background:radial-gradient(circle at 35% 35%,#e55,#700);}
+.ch10{background:radial-gradient(circle at 35% 35%,#55e,#007);}
+.ch25{background:radial-gradient(circle at 35% 35%,#5c5,#070);}
+.ch100{background:radial-gradient(circle at 35% 35%,#eb6,#840);}
+.ch500{background:radial-gradient(circle at 35% 35%,#b5e,#609);}
+
+.action-row{display:flex;gap:5px;}
+.btn-quick{
+  flex:1;height:52px;background:var(--panel3);border:1px solid var(--border);
+  font-family:'Bebas Neue';font-size:.52rem;letter-spacing:2px;color:var(--txt2);
+  cursor:none;transition:.15s;
+}
+.btn-quick:hover{border-color:var(--neon2);color:var(--neon2);}
+.btn-quick:disabled{opacity:.3;}
+
+.btn-play{
+  flex:3;height:52px;background:linear-gradient(180deg,#001828,#000c14);
+  border:1px solid var(--neon2);position:relative;overflow:hidden;cursor:none;transition:.12s;
+}
+.btn-play::before{content:'';position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,229,255,.1),transparent);pointer-events:none;}
+.btn-play:active,.btn-play.pressed{transform:scale(.97);}
+.btn-play:disabled{opacity:.3;}
+.bp-inner{
+  width:72%;height:62%;margin:auto;
+  background:linear-gradient(135deg,#003c54,#001e2c);
+  border:1px solid rgba(0,229,255,.35);
+  display:flex;align-items:center;justify-content:center;flex-direction:column;gap:1px;
+  box-shadow:inset 0 0 12px rgba(0,229,255,.08);
+  position:relative;z-index:1;
+}
+.bp-icon{font-size:1rem;}
+.bp-txt{font-family:'Orbitron';font-size:.58rem;font-weight:700;letter-spacing:3px;color:var(--neon);text-shadow:0 0 8px rgba(0,229,255,.5);}
+
+/* ── PAYOUT TABLE ── */
+.payout-section{background:var(--panel);border:1px solid var(--border);}
+.pay-head{
+  padding:7px 10px 5px;
+  display:flex;align-items:center;justify-content:space-between;
+  border-bottom:1px solid var(--border2);
+}
+.pay-head-lbl{font-family:'Bebas Neue';font-size:.5rem;letter-spacing:5px;color:var(--txt2);}
+.pay-pick-sel{display:flex;gap:3px;}
+.pps-btn{
+  width:22px;height:22px;display:flex;align-items:center;justify-content:center;
+  font-family:'Orbitron';font-size:.48rem;font-weight:700;
+  background:var(--panel3);border:1px solid var(--border2);color:var(--txt2);
+  cursor:none;transition:.12s;
+}
+.pps-btn.active{background:var(--neon3);border-color:var(--neon);color:var(--neon);}
+.pay-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:2px;padding:5px;}
+.pay-row{
+  display:flex;flex-direction:column;align-items:center;
+  padding:5px 4px;background:var(--panel3);border:1px solid var(--border2);
+  transition:.18s;
+}
+.pay-row.lit{background:rgba(0,230,118,.08);border-color:var(--green);box-shadow:0 0 8px rgba(0,230,118,.12);}
+.pay-row.jackpot{border-color:rgba(212,160,23,.2);}
+.pay-row.jackpot.lit{background:rgba(212,160,23,.08);border-color:var(--gold2);box-shadow:0 0 12px rgba(212,160,23,.18);}
+.pr-hits{font-family:'Bebas Neue';font-size:.48rem;letter-spacing:2px;color:var(--txt2);margin-bottom:2px;}
+.pr-mult{font-family:'Orbitron';font-size:.65rem;font-weight:700;color:var(--neon);line-height:1;}
+.pay-row.jackpot .pr-mult{color:var(--gold2);}
+
+/* ── STATS ── */
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;}
+.sbox{background:var(--panel);border:1px solid var(--border2);padding:6px 4px;text-align:center;}
+.sv{font-family:'Share Tech Mono';font-size:.78rem;display:block;color:var(--gold);}
+.sl{font-family:'Bebas Neue';font-size:.42rem;letter-spacing:3px;color:var(--txt2);display:block;margin-top:1px;}
+.sv.pos{color:var(--green);}.sv.neg{color:var(--hot);}
+
+/* ── HISTORY ── */
+.hist-wrap{background:var(--panel);border:1px solid var(--border2);padding:7px 9px;}
+.hl{font-family:'Bebas Neue';font-size:.44rem;letter-spacing:4px;color:var(--txt2);display:block;margin-bottom:6px;}
+.hdots{display:flex;gap:3px;flex-wrap:wrap;}
+.hd{padding:2px 6px;font-family:'Share Tech Mono';font-size:.58rem;animation:hdIn .2s ease both;border:1px solid;}
+@keyframes hdIn{from{opacity:0;transform:scale(.6)}to{opacity:1;transform:scale(1)}}
+.hw{background:rgba(0,230,118,.08);border-color:rgba(0,230,118,.3);color:var(--green);}
+.hl2{background:rgba(255,61,90,.06);border-color:rgba(255,61,90,.2);color:var(--hot);}
+
+.toast{position:fixed;top:58px;left:50%;transform:translateX(-50%);background:rgba(2,4,8,.97);border:1px solid var(--neon);color:var(--neon);font-family:'Bebas Neue';font-size:.75rem;letter-spacing:3px;padding:5px 14px;z-index:700;white-space:nowrap;pointer-events:none;animation:tIn .2s ease both;}
+@keyframes tIn{from{opacity:0;transform:translateX(-50%)translateY(-5px)}to{opacity:1;transform:translateX(-50%)translateY(0)}}
+.toast.err{border-color:var(--hot);color:var(--hot);}
+.cf{position:fixed;pointer-events:none;z-index:600;border-radius:2px;animation:cfA var(--dur,2s) ease forwards;}
+@keyframes cfA{0%{opacity:1;transform:translateY(0)rotate(0)}100%{opacity:0;transform:translateY(110vh)rotate(720deg)}}
+</style>
+</head>
+<body>
+<div id="cur"></div><div id="curDot"></div>
+
+<div class="topbar">
+  <a href="index.html" class="back">← CASINO</a>
+  <span class="top-title">K E N O</span>
+  <div class="top-coins">🪙 <span id="coinsEl">—</span></div>
+</div>
+
+<div class="page">
+
+  <!-- MARQUEE -->
+  <div class="marquee-wrap">
+    <div class="marquee">
+      <span class="marquee-item">◆ KENO ◆ ELIGE TUS NÚMEROS ◆ HASTA 10 SPOTS ◆ JACKPOT ×10.000 ◆ BUENA SUERTE ◆</span>
+      <span class="marquee-item">◆ KENO ◆ ELIGE TUS NÚMEROS ◆ HASTA 10 SPOTS ◆ JACKPOT ×10.000 ◆ BUENA SUERTE ◆</span>
+    </div>
+  </div>
+
+  <!-- PICK HEADER -->
+  <div class="pick-header">
+    <div class="ph-left">
+      <span class="ph-label">NÚMEROS ELEGIDOS</span>
+      <div class="ph-count" id="pickCount">0<span> / 10</span></div>
+    </div>
+    <div class="ph-right">
+      <span class="ph-spots">SPOTS ACTIVOS</span>
+      <div class="spot-dots" id="spotDots"></div>
+    </div>
+    <button class="ph-btn" id="clearBtn" onclick="clearPicks()">LIMPIAR</button>
+  </div>
+
+  <!-- NUMBER GRID -->
+  <div class="grid-wrap">
+    <span class="grid-title">◆ SELECCIONA TUS NÚMEROS (1 – 80) ◆</span>
+    <div class="num-grid" id="numGrid"></div>
+  </div>
+
+  <!-- DRAWN NUMBERS -->
+  <div class="drawn-section">
+    <span class="drawn-title">◆ NÚMEROS SORTEADOS</span>
+    <div class="drawn-balls" id="drawnBalls">
+      <span style="font-family:'Bebas Neue';font-size:.52rem;letter-spacing:3px;color:var(--txt2)">Inicia una partida para ver los sorteos</span>
+    </div>
+    <span class="drawn-count" id="drawnCount"></span>
+  </div>
+
+  <!-- RESULT -->
+  <div class="result-bar" id="resultBar">
+    <span class="rb-idle">◆ ELIGE NÚMEROS Y APUESTA ◆</span>
+  </div>
+
+  <!-- CONTROLS -->
+  <div class="controls">
+    <span class="ctrl-lbl">◆ APUESTA POR PARTIDA</span>
+    <div class="chip-row">
+      <div class="chip ch1"        onclick="selChip(1,this)">1</div>
+      <div class="chip ch5"        onclick="selChip(5,this)">5</div>
+      <div class="chip ch10 sel"   onclick="selChip(10,this)">10</div>
+      <div class="chip ch25"       onclick="selChip(25,this)">25</div>
+      <div class="chip ch100"      onclick="selChip(100,this)">100</div>
+      <div class="chip ch500"      onclick="selChip(500,this)">500</div>
+    </div>
+    <div class="action-row">
+      <button class="btn-quick" id="quickBtn"  onclick="quickPick()">QUICK<br>PICK</button>
+      <button class="btn-quick" id="repeatBtn" onclick="repeatLast()" style="display:none">REPETIR<br>PICKS</button>
+      <button class="btn-play"  id="playBtn"   onclick="play()">
+        <div class="bp-inner">
+          <span class="bp-icon">🎱</span>
+          <span class="bp-txt" id="playTxt">JUGAR</span>
+        </div>
+      </button>
+    </div>
+  </div>
+
+  <!-- PAYOUT TABLE -->
+  <div class="payout-section">
+    <div class="pay-head">
+      <span class="pay-head-lbl">◆ PAGOS (según picks elegidos)</span>
+      <div class="pay-pick-sel" id="payPickSel"></div>
+    </div>
+    <div class="pay-grid" id="payGrid"></div>
+  </div>
+
+  <!-- BET SUMMARY -->
+  <div style="display:flex;gap:5px;">
+    <div class="sbox" style="flex:1"><span class="sv" id="bsB">—</span><span class="sl">APUESTA</span></div>
+    <div class="sbox" style="flex:1"><span class="sv" id="bsCr">—</span><span class="sl">CRÉDITOS</span></div>
+    <div class="sbox" style="flex:1"><span class="sv" id="bsHits">—</span><span class="sl">HITS</span></div>
+    <div class="sbox" style="flex:1"><span class="sv pos" id="bsWin">—</span><span class="sl">PREMIO</span></div>
+  </div>
+
+  <!-- STATS -->
+  <div class="stats-row">
+    <div class="sbox"><span class="sv" id="stR">0</span><span class="sl">PARTIDAS</span></div>
+    <div class="sbox"><span class="sv pos" id="stW">0</span><span class="sl">GANAD.</span></div>
+    <div class="sbox"><span class="sv neg" id="stL">0</span><span class="sl">PERDID.</span></div>
+    <div class="sbox"><span class="sv" id="stNet">0</span><span class="sl">NETO</span></div>
+  </div>
+
+  <!-- HISTORY -->
+  <div class="hist-wrap">
+    <span class="hl">◆ HISTORIAL</span>
+    <div class="hdots" id="histEl"></div>
+  </div>
+
+</div>
+
+<script>
+/* ── COINS ─────────────────────────────────────────────── */
+const CKEY='casino_royale_coins';
+const Coins={
+  get(){const v=parseInt(localStorage.getItem(CKEY));return isNaN(v)?10000:v;},
+  set(n){const v=Math.max(0,Math.round(n));localStorage.setItem(CKEY,v);return v;},
+  add(n){return this.set(this.get()+n);},
+  sub(n){return this.set(this.get()-n);},
+  fmt(n){return(n??this.get()).toLocaleString('de-DE');}
+};
+
+/* ── PAYOUT TABLES (multipliers on bet) ────────────────── */
+// PAYOUTS[picks][hits] = multiplier (0 = lose)
+const PAYOUTS={
+  1: {1:3},
+  2: {2:12, 1:1},
+  3: {3:45, 2:5},
+  4: {4:120, 3:8, 2:1},
+  5: {5:450, 4:20, 3:3, 2:0.5},
+  6: {6:1500, 5:60, 4:10, 3:2},
+  7: {7:4000, 6:180, 5:30, 4:5, 3:1},
+  8: {8:7000, 7:500, 6:80, 5:12, 4:2},
+  9: {9:9000, 8:1200, 7:150, 6:25, 5:4, 4:1},
+  10:{10:10000,9:2000, 8:300, 7:50,  6:8, 5:2, 4:0.5},
+};
+
+/* ── STATE ─────────────────────────────────────────────── */
+let picks=new Set();
+let lastPicks=null;
+let chipVal=10;
+let coins=Coins.get();
+let gameState='idle'; // idle | playing
+let payTableView=5; // which picks to show in payout table
+let stats={r:0,w:0,l:0,net:0};
+let history=[];
+
+/* ── BUILD NUMBER GRID ──────────────────────────────────── */
+function buildGrid(){
+  const g=document.getElementById('numGrid');
+  g.innerHTML='';
+  for(let i=1;i<=80;i++){
+    const b=document.createElement('button');
+    b.className='num-btn';b.id='nb-'+i;b.textContent=i;
+    b.addEventListener('click',()=>togglePick(i));
+    g.appendChild(b);
+  }
+}
+
+/* ── BUILD SPOT DOTS ────────────────────────────────────── */
+function buildSpotDots(){
+  const c=document.getElementById('spotDots');c.innerHTML='';
+  for(let i=0;i<10;i++){
+    const d=document.createElement('div');d.className='sdot';d.id='sd-'+i;c.appendChild(d);
+  }
+}
+
+/* ── PICK LOGIC ─────────────────────────────────────────── */
+function togglePick(n){
+  if(gameState==='playing') return;
+  if(picks.has(n)){
+    picks.delete(n);
+    document.getElementById('nb-'+n).classList.remove('picked');
+  } else {
+    if(picks.size>=10){toast('Máximo 10 números','err');return;}
+    picks.add(n);
+    document.getElementById('nb-'+n).classList.add('picked');
+  }
+  updatePickUI();
+}
+
+function clearPicks(){
+  if(gameState==='playing') return;
+  picks.forEach(n=>document.getElementById('nb-'+n).classList.remove('picked'));
+  picks.clear();
+  updatePickUI();
+}
+
+function quickPick(){
+  if(gameState==='playing') return;
+  clearPicks();
+  const count=Math.floor(Math.random()*4)+5; // 5-8 picks
+  while(picks.size<count){
+    const n=Math.floor(Math.random()*80)+1;
+    if(!picks.has(n)){picks.add(n);document.getElementById('nb-'+n).classList.add('picked');}
+  }
+  updatePickUI();
+}
+
+function repeatLast(){
+  if(!lastPicks||gameState==='playing') return;
+  clearPicks();
+  lastPicks.forEach(n=>{picks.add(n);document.getElementById('nb-'+n).classList.add('picked');});
+  updatePickUI();
+}
+
+function updatePickUI(){
+  const c=picks.size;
+  document.getElementById('pickCount').innerHTML=`${c}<span> / 10</span>`;
+  // Spot dots
+  for(let i=0;i<10;i++){
+    const d=document.getElementById('sd-'+i);
+    if(d) d.className='sdot'+(i<c?' filled':'');
+  }
+  // Update payout table to match picks
+  if(c>0&&PAYOUTS[c]){
+    payTableView=c;buildPayTable();
+  }
+  updatePayPickSel();
+}
+
+/* ── PAYOUT TABLE ───────────────────────────────────────── */
+function buildPayPickSel(){
+  const c=document.getElementById('payPickSel');c.innerHTML='';
+  for(let p=1;p<=10;p++){
+    const b=document.createElement('button');
+    b.className='pps-btn'+(p===payTableView?' active':'');
+    b.textContent=p;b.dataset.p=p;
+    b.addEventListener('click',()=>{payTableView=p;buildPayTable();updatePayPickSel();});
+    c.appendChild(b);
+  }
+}
+function updatePayPickSel(){
+  document.querySelectorAll('.pps-btn').forEach(b=>{
+    b.className='pps-btn'+(parseInt(b.dataset.p)===payTableView?' active':'');
+  });
+}
+function buildPayTable(litHits){
+  const g=document.getElementById('payGrid');g.innerHTML='';
+  const pt=PAYOUTS[payTableView]||{};
+  // Build rows from max hits down to min
+  const rows=[];
+  for(let h=payTableView;h>=1;h--){
+    const m=pt[h];if(m===undefined) continue;
+    rows.push({hits:h,mult:m});
+  }
+  rows.forEach(row=>{
+    const isJack=row.mult>=5000;
+    const div=document.createElement('div');
+    div.className='pay-row'+(isJack?' jackpot':'');
+    if(litHits!==undefined&&row.hits===litHits) div.classList.add('lit');
+    const mStr=row.mult>=1000?Coins.fmt(row.mult)+'×':row.mult+'×';
+    div.innerHTML=`<span class="pr-hits">${row.hits} HITS</span><span class="pr-mult">${mStr}</span>`;
+    g.appendChild(div);
+  });
+}
+
+/* ── PLAY ───────────────────────────────────────────────── */
+async function play(){
+  if(gameState==='playing') return;
+  if(picks.size===0){toast('Elige al menos 1 número','err');return;}
+  if(coins<chipVal){toast('Fichas insuficientes','err');return;}
+
+  gameState='playing';
+  coins=Coins.sub(chipVal);animCoins(coins+chipVal,coins);
+  lastPicks=new Set(picks);
+
+  document.getElementById('playBtn').disabled=true;
+  document.getElementById('quickBtn').disabled=true;
+  document.getElementById('clearBtn').disabled=true;
+
+  // Reset drawn UI
+  document.getElementById('drawnBalls').innerHTML='';
+  document.getElementById('drawnCount').textContent='';
+  document.querySelectorAll('.num-btn').forEach(b=>{
+    b.classList.remove('drawn','hit');
+  });
+  document.querySelectorAll('.pay-row').forEach(r=>r.classList.remove('lit'));
+  setResult('idle');
+
+  // Draw 20 unique numbers from 1-80
+  const pool=Array.from({length:80},(_,i)=>i+1);
+  for(let i=pool.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[pool[i],pool[j]]=[pool[j],pool[i]];}
+  const drawn=pool.slice(0,20);
+
+  let hits=0;
+  const drawnEl=document.getElementById('drawnBalls');
+
+  // Animate drawing one by one
+  for(let i=0;i<drawn.length;i++){
+    const n=drawn[i];
+    const isHit=picks.has(n);
+    if(isHit) hits++;
+
+    // Ball in drawn section
+    const ball=document.createElement('div');
+    ball.className='dball '+(isHit?'match':'miss');
+    ball.textContent=n;
+    ball.style.animationDelay=(i*0.04)+'s';
+    drawnEl.appendChild(ball);
+
+    // Highlight in grid
+    const gb=document.getElementById('nb-'+n);
+    if(gb){
+      gb.classList.add(isHit?'hit':'drawn');
+    }
+
+    // Flash the grid number with a delay
+    await delay(isHit?80:55);
+
+    document.getElementById('drawnCount').textContent=
+      `${i+1}/20 sorteados · ${hits} coincidencia${hits!==1?'s':''}`;
+  }
+
+  // Resolve
+  await delay(350);
+  const mult=PAYOUTS[picks.size]?.[hits]||0;
+  const won=Math.floor(chipVal*mult);
+  const net=won-chipVal;
+
+  stats.r++;
+  if(won>0){
+    stats.w++;stats.net+=net;
+    coins=Coins.add(won);animCoins(coins-won,coins);
+    history.unshift({won:true,hits,picks:picks.size,mult,net});
+    setResult('win',hits,won,mult);
+    if(won>=chipVal*10) confetti(won>=chipVal*100?90:50);
+  } else {
+    stats.l++;stats.net-=chipVal;
+    history.unshift({won:false,hits,picks:picks.size,mult:0,net:-chipVal});
+    setResult('lose',hits,0,0);
+  }
+
+  buildPayTable(hits>0&&mult>0?hits:undefined);
+  updateInfoRow(hits,won,mult);
+  updateStats();renderHistory();
+
+  gameState='idle';
+  document.getElementById('playBtn').disabled=false;
+  document.getElementById('quickBtn').disabled=false;
+  document.getElementById('clearBtn').disabled=false;
+  document.getElementById('repeatBtn').style.display='block';
+}
+
+function setResult(type,hits,won,mult){
+  const el=document.getElementById('resultBar');
+  if(type==='idle'){
+    el.innerHTML='<span class="rb-idle">◆ ELIGE NÚMEROS Y APUESTA ◆</span>';
+  } else if(type==='win'){
+    el.innerHTML=`
+      <div class="rb-win">+${Coins.fmt(won)} FICHAS · ×${mult}</div>
+      <div class="rb-hits">${hits} hit${hits!==1?'s':''} de ${picks.size} elegidos</div>`;
+  } else {
+    el.innerHTML=`
+      <div class="rb-lose">SIN PREMIO</div>
+      <div class="rb-hits">${hits} hit${hits!==1?'s':''} de ${picks.size} elegidos</div>`;
+  }
+}
+
+function updateInfoRow(hits,won,mult){
+  document.getElementById('bsB').textContent=Coins.fmt(chipVal);
+  document.getElementById('bsHits').textContent=hits+'/'+picks.size;
+  document.getElementById('bsWin').textContent=won>0?'+'+Coins.fmt(won):'0';
+  document.getElementById('bsWin').className='sv'+(won>0?' pos':won===0?' neg':'');
+}
+
+/* ── CHIP ───────────────────────────────────────────────── */
+function selChip(v,el){
+  chipVal=v;
+  document.querySelectorAll('.chip').forEach(c=>c.classList.remove('sel'));
+  el.classList.add('sel');
+  document.getElementById('bsB').textContent=Coins.fmt(chipVal);
+}
+
+/* ── STATS & HISTORY ─────────────────────────────────────── */
+function updateStats(){
+  document.getElementById('stR').textContent=stats.r;
+  document.getElementById('stW').textContent=stats.w;
+  document.getElementById('stL').textContent=stats.l;
+  const n=document.getElementById('stNet');
+  n.textContent=(stats.net>=0?'+':'')+Coins.fmt(stats.net);
+  n.className='sv '+(stats.net>0?'pos':stats.net<0?'neg':'');
+}
+function renderHistory(){
+  if(history.length>24) history.length=24;
+  document.getElementById('histEl').innerHTML=history.map(h=>{
+    const cls=h.won?'hw':'hl2';
+    return`<div class="hd ${cls}">${h.hits}/${h.picks}${h.mult?'·×'+h.mult:''}</div>`;
+  }).join('');
+}
+
+/* ── COINS ANIMATION ─────────────────────────────────────── */
+function animCoins(from,to){
+  const dur=500,t0=performance.now();
+  function step(now){
+    const t=Math.min((now-t0)/dur,1),e=1-Math.pow(1-t,3);
+    const v=Math.round(from+(to-from)*e);
+    document.getElementById('coinsEl').textContent=Coins.fmt(v);
+    document.getElementById('bsCr').textContent=Coins.fmt(v);
+    if(t<1) requestAnimationFrame(step);
+    else{
+      document.getElementById('coinsEl').textContent=Coins.fmt(to);
+      document.getElementById('bsCr').textContent=Coins.fmt(to);
+    }
+  }
+  requestAnimationFrame(step);
+}
+
+/* ── EFFECTS ─────────────────────────────────────────────── */
+function confetti(n=40){
+  const cols=['#00e5ff','#00e676','#d4a017','#fff','#ff3d5a','#bb86fc'];
+  for(let i=0;i<n;i++){
+    const c=document.createElement('div');c.className='cf';
+    c.style.cssText=`left:${5+Math.random()*90}vw;top:-10px;width:${4+Math.random()*8}px;height:${4+Math.random()*8}px;background:${cols[i%cols.length]};--dur:${1.5+Math.random()*1}s;animation-delay:${Math.random()*.5}s;`;
+    document.body.appendChild(c);setTimeout(()=>c.remove(),3500);
+  }
+}
+function toast(msg,type=''){
+  document.querySelectorAll('.toast').forEach(e=>e.remove());
+  const el=document.createElement('div');el.className='toast '+(type||'');el.textContent=msg;
+  document.body.appendChild(el);setTimeout(()=>el.remove(),2400);
+}
+function delay(ms){return new Promise(r=>setTimeout(r,ms));}
+
+/* ── CURSOR ──────────────────────────────────────────────── */
+const curEl=document.getElementById('cur'),curDot=document.getElementById('curDot');
+let mx=0,my=0,ccx=0,ccy=0;
+document.addEventListener('mousemove',e=>{mx=e.clientX;my=e.clientY;curDot.style.left=mx+'px';curDot.style.top=my+'px';});
+(function loop(){ccx+=(mx-ccx)*.14;ccy+=(my-ccy)*.14;curEl.style.left=ccx+'px';curEl.style.top=ccy+'px';requestAnimationFrame(loop);})();
+document.querySelectorAll('button,a,.chip,.num-btn').forEach(el=>{
+  el.addEventListener('mouseenter',()=>curEl.classList.add('h'));
+  el.addEventListener('mouseleave',()=>curEl.classList.remove('h'));
+});
+
+/* ── INIT ────────────────────────────────────────────────── */
+coins=Coins.get();
+document.getElementById('coinsEl').textContent=Coins.fmt(coins);
+document.getElementById('bsCr').textContent=Coins.fmt(coins);
+document.getElementById('bsB').textContent=Coins.fmt(chipVal);
+buildGrid();
+buildSpotDots();
+buildPayPickSel();
+buildPayTable();
+</script>
+</body>
+</html>
